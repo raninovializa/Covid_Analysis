@@ -132,7 +132,7 @@ where dea.continent is not null
 and vac.new_vaccinations is not null
 order by 2,3
 
--- Looking at 
+-- Looking at total population vs vaccinations
 
 Select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
 SUM(CONVERT (float, vac.new_vaccinations)) OVER (partition by dea.location) as Sum_vaccinations
@@ -144,12 +144,74 @@ where dea.continent is not null
 and vac.new_vaccinations is not null
 order by 2,3
 
+
+
+-- 1. USE CTE
+
+with population_vs_vac (continent, location, date, population, new_vaccinations, sum_vaccinations) as
+(
 Select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
-SUM(cast (vac.new_vaccinations as float)) OVER (partition by dea.location Order by dea.location, dea.date) as Sum_vaccinations
+SUM(cast (vac.new_vaccinations as float)) OVER (partition by dea.location Order by dea.location, dea.date) as sum_vaccinations
 From PortofolioProject..CovidDeaths dea
 Join PortofolioProject..CovidVaccinations vac
 	On dea.location = vac.location
 	and dea.date = vac.date
 where dea.continent is not null
 and vac.new_vaccinations is not null
+--order by 2,3
+)
+select *,
+(sum_vaccinations/population)*100 as sum_vaccinations_percentage
+from population_vs_vac
 order by 2,3
+
+
+
+-- 2. TEMP TABLE
+
+DROP table if exists #percent_population_vaccinated
+Create Table #percent_population_vaccinated
+(
+continent nvarchar(255), 
+location nvarchar(255), 
+date datetime, 
+population numeric, 
+new_vaccinations numeric,
+Sum_vaccinations numeric
+)
+
+INSERT INTO #percent_population_vaccinated
+Select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
+SUM(convert (float, vac.new_vaccinations)) OVER (partition by dea.location Order by dea.location, dea.date) as sum_vaccinations
+From PortofolioProject..CovidDeaths dea
+Join PortofolioProject..CovidVaccinations vac
+	On dea.location = vac.location
+	and dea.date = vac.date
+where dea.continent is not null
+and vac.new_vaccinations is not null
+
+select *,
+(sum_vaccinations/population)*100 as sum_vaccinations_percentage
+from #percent_population_vaccinated
+order by 2,3
+
+
+
+-- Creating view to store data for later visualizations (tableau)
+
+
+create view percent_populations_vaccinated as
+Select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
+SUM(convert (float, vac.new_vaccinations)) OVER (partition by dea.location Order by dea.location, dea.date) as sum_vaccinations
+From PortofolioProject..CovidDeaths dea
+Join PortofolioProject..CovidVaccinations vac
+	On dea.location = vac.location
+	and dea.date = vac.date
+where dea.continent is not null
+--and vac.new_vaccinations is not null
+
+sp_refreshview percent_populations_vaccinated
+
+drop view percent_populations_vaccinated
+
+select top 10 * from percent_populations_vaccinated
