@@ -199,7 +199,6 @@ order by 2,3
 
 -- Creating view to store data for later visualizations (tableau)
 
-
 create view percent_populations_vaccinated as
 Select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
 SUM(convert (float, vac.new_vaccinations)) OVER (partition by dea.location Order by dea.location, dea.date) as sum_vaccinations
@@ -215,3 +214,48 @@ sp_refreshview percent_populations_vaccinated
 drop view percent_populations_vaccinated
 
 select top 10 * from percent_populations_vaccinated
+
+
+
+-- now this data is for tableau
+--- 1
+
+create view avg_death_percentage as
+select sum(cast(new_cases as float)) as total_cases, sum(cast(new_deaths as float)) as total_deaths,
+sum(cast(new_deaths as float))/sum(cast(new_cases as float))*100 as death_percentage
+from PortofolioProject..CovidDeaths
+where continent is not null
+--order by 1,2
+
+sp_refreshview avg_death_percentage
+
+
+
+-- 2
+
+create view total_death_count as
+select location, sum(cast(new_deaths as float)) as total_death
+from PortofolioProject..CovidDeaths
+where continent is null
+and location not in ('world', 'european union', 'international', 'upper middle income', 'high income', 'low income', 'lower middle income')
+group by location
+--order by total_death desc
+
+
+
+-- 3
+
+create view percentage_infected as
+select location, population, max(cast(total_cases as float)) as highest_infection_count, max(cast(total_Cases as float)/population)*100 as percent_population_infected
+from PortofolioProject..CovidDeaths
+group by location, population
+--order by percent_population_infected desc
+
+
+
+
+
+
+
+
+
